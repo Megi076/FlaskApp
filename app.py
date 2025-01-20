@@ -87,9 +87,13 @@ def average_spending_by_age():
 #3 end point
 # Konekcija do MongoDB
 
-client = MongoClient("mongodb://localhost:27017/")
-db = client["users_vouchers"]  # Ime na baza
-collection = db["vouchers"]  # Ime na konekcija
+# client = MongoClient("mongodb://localhost:27017/")
+# db = client["users_vouchers"]  # Ime na baza
+# collection = db["vouchers"]  # Ime na konekcija
+
+mongo_client = MongoClient("mongodb://localhost:27017/")
+mongo_db = mongo_client["users_vouchers"]  # Ime na baza
+collection =  mongo_db["vouchers"]  # Ime na konekcija
 
 
 @app.route('/write_to_mongodb', methods=['POST'])
@@ -118,8 +122,6 @@ def write_to_mongodb():
     except Exception as e:
         # Obrabotka na greski
         return jsonify({"error": str(e)}), 500
-
-
 
 
 if __name__ == '__main__':
