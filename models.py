@@ -1,5 +1,5 @@
 from extensions import db
-
+##
 class UserInfo(db.Model):
     __tablename__ = 'user_info'
     user_id =db.Column(db.Integer, primary_key=True)
