@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from extensions import db
-from sqlalchemy.sql import func
+
+from sqlalchemy import func
+
+
 import sqlite3
 
 from models import UserSpending
@@ -27,10 +30,14 @@ def get_db_connection():
 #vkupna potrosuvacka za korisnik
 @app.route('/total_spent/<int:user_id>', methods=['GET'])
 def total_spent(user_id): #
-    # SQLAlchemy query za da se dobie vkupniot trosok na korisnikot
-    total_spending = db.session.query(func.sum(UserSpending.money_spent))\
-                               .filter(UserSpending.user_id == user_id).scalar() #funkcija za suma od tabelata user_spending
-     # i filtriram spored odredeno id
+    # # SQLAlchemy query za da se dobie vkupniot trosok na korisnikot
+    # total_spending = db.session.query(UserSpending.user_id, func.sum(UserSpending.money_spent).label('total_quantity')).group_by(UserSpending.user_id)
+    # #total_spending = db.session.query(func.sum(UserSpending.money_spent))\
+    #                            #.filter(UserSpending.user_id == user_id).scalar() #funkcija za suma od tabelata user_spending
+    #  # i filtriram spored odredeno id
+
+    user_spending = UserSpending.query.filter_by(user_id=user_id).all()
+    total_spending = sum([spending.money_spent for spending in user_spending])
 
     # Ako nema zapisi za toj korisnik da se vrati greska i soodvetna poraka
     if total_spending is None:
@@ -40,6 +47,9 @@ def total_spent(user_id): #
     # Rezultatot se vrakja kako JSON
     return jsonify({"user_id": user_id, "total_spending": total_spending})
              #ako ima odgovor ke go vrati idto i vkupnata potrosuvacka za toj korisnik
+
+
+
 
 
 #2 end point
