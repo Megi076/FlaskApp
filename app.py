@@ -1,3 +1,4 @@
+import requests as requests
 from flask import Flask, request, jsonify
 from extensions import db
 
@@ -51,6 +52,39 @@ def total_spent(user_id): #
 
 
 
+#
+# #2 end point
+# #prosecna potrosuvacka po korisnik
+# @app.route('/average_spending_by_age', methods=['GET'])
+# def average_spending_by_age():
+#     # Definiranje na vozrasni kategorii
+#     age_ranges = [
+#         (18, 24),
+#         (25, 30),
+#         (31, 36),
+#         (37, 47),
+#         (48, 150)  # 150 kako gorna granica za site nad 47 godini
+#     ]
+#
+#     results = []
+#
+#     for min_age, max_age in age_ranges:
+#         # Query za da se presmeta prosecnata potrosuvacka za sekoja kategorija
+#         avg_query = (
+#             db.session.query(func.avg(UserSpending.money_spent))
+#             .join(UserInfo, UserInfo.user_id == UserSpending.user_id) #za da se najde istiot korisnik
+#             .filter(UserInfo.age.between(min_age, max_age)) #da se filtrira spored
+#         ).scalar()
+#
+#         results.append({
+#             "age_range": f"{min_age}-{max_age if max_age < 150 else '+'}",
+#             "average_spending": avg_query if avg_query else 0
+#         })
+#
+#     # da se vrati vo JSON
+#     return jsonify(results)
+#
+
 
 #2 end point
 #prosecna potrosuvacka po korisnik
@@ -65,24 +99,23 @@ def average_spending_by_age():
         (48, 150)  # 150 kako gorna granica za site nad 47 godini
     ]
 
-    results = []
+    # da se vrati rezultatot vo forma na recnik, a ne lista bidejki pravi problem so Telegram
+    results = {}
 
     for min_age, max_age in age_ranges:
         # Query za da se presmeta prosecnata potrosuvacka za sekoja kategorija
         avg_query = (
             db.session.query(func.avg(UserSpending.money_spent))
             .join(UserInfo, UserInfo.user_id == UserSpending.user_id) #za da se najde istiot korisnik
-            .filter(UserInfo.age.between(min_age, max_age)) #da se filtrira spored
+            .filter(UserInfo.age.between(min_age, max_age))
         ).scalar()
 
-        results.append({
-            "age_range": f"{min_age}-{max_age if max_age < 150 else '+'}",
-            "average_spending": avg_query if avg_query else 0
-        })
 
-    # da se vrati vo JSON
+        age_range_key = f"{min_age}-{max_age if max_age < 150 else '+'}"
+        results[age_range_key] = avg_query if avg_query else 0
+
+    # Da se vrati rezultatot vo JSON
     return jsonify(results)
-
 
 #3 end point
 # Konekcija do MongoDB
@@ -122,6 +155,60 @@ def write_to_mongodb():
     except Exception as e:
         # Obrabotka na greski
         return jsonify({"error": str(e)}), 500
+
+
+# Telegram Bot API token, koj gi dobivame od samata app
+TELEGRAM_TOKEN = '7627404850:AAGq__FaH02KchWQK3vCEuhHGFZwmi1XUuI'
+# Chat ID kade ke isprakjame poraki
+CHAT_ID = '8196067730'
+
+def send_message_to_telegram(message):
+    """
+    Funkcija za isprakjanje poraka do Telegram koristejki go Bot API
+    """
+    telegram_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    params = {
+        'chat_id': CHAT_ID,
+        'text': message,
+        'parse_mode': 'Markdown'  # Овозможува користење на Markdown за форматирање
+    }
+    response = requests.post(telegram_url, params=params)
+
+    # Da se proveri dali porakata e uspesno pratena, ako ne da se napise greska so soodvetna poraka
+    if response.status_code != 200:
+        raise Exception(f"Failed to send message: {response.text}")
+
+@app.route('/send_average_spending_to_telegram', methods=['GET']) #pateka za isprakjanje na poraka do telegram
+def send_average_to_telegram():
+    try:
+        # Se povikuva funkcijata average_spending_by_age
+        response = average_spending_by_age()  # treba da se vrati recnik na statistikite sto gi imame implementirano so
+        #so funkijata  average_spending_by_age
+        average_data = response.get_json()  # da se prezeme JSON objektot
+
+        # Da se proveri dali average_data е dictionay
+        if not isinstance(average_data, dict):
+            raise ValueError("Invalid data format: Expected a dictionary") #dokolku ne e da se napise poraka so greska
+
+        # Se generira poraka za isprakjanje
+        message = "📊 *Average Spending by Age Ranges*:\n"
+        for age_range, avg in average_data.items():
+            message += f"• Age {age_range}: ${avg:.2f}\n"
+
+        # se isprakja poraka do Telegram
+        send_message_to_telegram(message)
+
+        return jsonify({"message": "Message sent successfully to Telegram!"}), 200
+        #se isprakja poraka do telegram i se dobiva response 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    #ako toa ne e slucaj se frla exception so greska
+
+
+
+
+
 
 
 if __name__ == '__main__':
